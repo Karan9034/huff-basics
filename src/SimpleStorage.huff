@@ -1,0 +1,47 @@
+#define function set(uint256) nonpayable returns()
+#define function get() view returns(uint256)
+
+#define constant NUMBER_SLOT = FREE_STORAGE_SLOT()
+
+#define macro MAIN() = takes(0) returns(0) {
+    // Get the function selector from calldata
+    0x00                            // [0] PUSH by default
+    calldataload                    // [calldata], calldataload loads first 32 bytes by default, we can add a offset to skip initial bytes
+    0xE0                            // [0xE0, calldata], need to right shift 28 bytes = 224 bits = 0xE0
+    shr                             // [funcSelector], shift right to get the first 4 bytes
+
+    // Function selector for set(uint256) = 0x60fe47b1
+    dup1                            // [funcSelector, funcSelector], duplicate the function selector
+    __FUNC_SIG(set)                 // [0x60fe47b1, funcSelector, funcSelector], function selector for set(uint256)
+    eq                              // [matches ? 0x01 : 0x00, funcSelector], check if function selector is equal to set(uint256)
+    updateJump                      // [updateJump, matches ? 0x01 : 0x00, funcSelector], updateJump is a flag to point to the next instruction
+    jumpi                           // [funcSelector], jump to updateJump if matches
+
+    // Function selector for get() = 0x6d4ce63c
+    __FUNC_SIG(get)                 // [0x6d4ce63c, funcSelector], function selector for get()
+    eq                              // [matches ? 0x01 : 0x00], check if function selector is equal to get()
+    getJump                         // [getJump, matches ? 0x01 : 0x00], getJump is a flag to point to the next instruction
+    jumpi                           // [], jump to getJump if matches
+ 
+    0x00 0x00 revert                // [], revert if no matches
+    
+    updateJump:
+        SET_NUMBER()
+    getJump:
+        GET_NUMBER()
+}
+
+#define macro SET_NUMBER() = takes(0) returns(0) {
+    0x04 calldataload
+    [NUMBER_SLOT]
+    sstore
+    stop
+}
+
+#define macro GET_NUMBER() = takes(0) returns(0) {
+    [NUMBER_SLOT]
+    sload
+    0x00
+    mstore
+    0x20 0x00 return
+}
